@@ -7,6 +7,7 @@ import (
 	"grpc/stream/calculator/calculatorpb"
 	"io"
 	"log"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -21,10 +22,45 @@ func main() {
 	c := calculatorpb.NewCalculatorServiceClient(cc)
 	// doUnary(c)
 	// doServerStreaming(c)
-	doClientStreaming(c)
+	// doClientStreaming(c)
+	doBidiStreaming(c)
 
 }
 
+func doBidiStreaming(c calculatorpb.CalculatorServiceClient) {
+	fmt.Println("Starting to do a Bidi streaming RPC .. ")
+	stream, err := c.FindMaximum(context.Background())
+	if err != nil {
+		log.Fatalf("Error while opening stream and calling FindMaximum : %v", err)
+	}
+	wc := make(chan int)
+	go func() {
+		numbers := []int32{4, 5, 53, 6, 7, 756}
+		for _, number := range numbers {
+			stream.Send(&calculatorpb.FindMaximumRequest{
+				Number: number,
+			})
+			time.Sleep(time.Second)
+		}
+		stream.CloseSend()
+	}()
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				wc <- 0
+				break
+			}
+			if err != nil {
+				log.Printf("Error while receinving : %v", err)
+				wc <- 1
+			}
+			maximum := res.GetNumber()
+			log.Printf("Got the new maximum : %v", maximum)
+		}
+	}()
+	<-wc
+}
 func doUnary(c calculatorpb.CalculatorServiceClient) {
 	fmt.Println("Starting to do a SUM unary RPC .. ")
 	req := calculatorpb.SumRequest{
@@ -85,21 +121,24 @@ type TreeNode struct {
 	left, right *TreeNode
 }
 
-func BSTSearch(root *TreeNode, key int) *TreeNode {
+func BSTSearch(root *TreeNode, key int) (*TreeNode, *TreeNode, *TreeNode) {
 	if root == nil {
-		return nil
+		return nil, nil, nil
 	}
 	curr := root
+	var succ, pred *TreeNode
 	for curr != nil {
 		if key == curr.key {
-			return curr
+			return curr, succ, pred
 		} else if key < curr.key {
+			succ = curr
 			curr = curr.left
 		} else {
+			pred = curr
 			curr = curr.right
 		}
 	}
-	return nil
+	return nil, succ, pred
 }
 
 func BSTInsert(root *TreeNode, key int, val int) (*TreeNode, error) {
@@ -131,7 +170,7 @@ func BSTInsert(root *TreeNode, key int, val int) (*TreeNode, error) {
 
 func BSTMin(root *TreeNode) (*TreeNode, error) {
 	if root == nil {
-		return nil, nil //empty tree so we are creating the new node
+		return nil, nil //empty tree
 	}
 	curr := root
 	for curr.left != nil {
@@ -142,11 +181,43 @@ func BSTMin(root *TreeNode) (*TreeNode, error) {
 
 func BSTMax(root *TreeNode) (*TreeNode, error) {
 	if root == nil {
-		return nil, nil //empty tree so we are creating the new node
+		return nil, nil //empty tree
 	}
 	curr := root
 	for curr.right != nil {
 		curr = curr.right
 	}
 	return curr, nil
+}
+
+func BSTSuccessor(root *TreeNode, key int) (*TreeNode, error) {
+	if root == nil {
+		return nil, nil //empty tree
+	}
+	curr, succ, _ := BSTSearch(root, key)
+	if curr == nil {
+		return nil, errors.New("key not found")
+	}
+	if curr.right != nil {
+		//leftmost child of the right subtree
+		return BSTMin(curr.right)
+	}
+	//now we have to go back to the ancestral tree to find the first right turn
+	return succ, nil
+}
+
+func BSTPredecessor(root *TreeNode, key int) (*TreeNode, error) {
+	if root == nil {
+		return nil, nil //empty tree
+	}
+	curr, _, pred := BSTSearch(root, key)
+	if curr == nil {
+		return nil, errors.New("key not found")
+	}
+	if curr.left != nil {
+		//leftmost child of the right subtree
+		return BSTMax(curr.left)
+	}
+	//now we have to go back to the ancestral tree to find the first right turn
+	return pred, nil
 }

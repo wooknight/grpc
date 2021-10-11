@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"grpc/stream/calculator/calculatorpb"
 	"grpc/stream/greet/greetpb"
 	"io"
 	"time"
@@ -61,6 +60,27 @@ func (s *server) LongGreet(stream greetpb.GreetService_LongGreetServer) error {
 	return stream.SendAndClose(&greetpb.LongGreetResponse{
 		Result: result,
 	})
+}
+
+func (*server) LongGreetMany(stream greetpb.GreetService_LongGreetManyServer) error {
+	result := "LongGreetMany was invoked " + time.Now().String()
+	log.Println(result)
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			log.Fatalf("Error while receiving LongGreetManyServer")
+		}
+		err = stream.Send(&greetpb.LongGreetManyResponse{
+			Result: "Hello" + req.GetGreeting().GetFirstName() + "!!",
+		})
+		if err != nil {
+			log.Printf("Error while sending data to client : %v", err)
+			return err
+		}
+	}
 }
 
 func main() {
