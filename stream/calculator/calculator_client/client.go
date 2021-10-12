@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func main() {
@@ -23,7 +25,27 @@ func main() {
 	// doUnary(c)
 	// doServerStreaming(c)
 	// doClientStreaming(c)
-	doBidiStreaming(c)
+	// doBidiStreaming(c)
+	doErrorUnary(c)
+
+}
+func doErrorUnary(c calculatorpb.CalculatorServiceClient) {
+	fmt.Println("Starting to do a SQRT error RPC .. ")
+	num := int32(-9)
+	res, err := c.SquareRoot(context.Background(), &calculatorpb.SquareRootRequest{Number: num})
+	if err != nil {
+		err, ok := status.FromError(err)
+		if ok {
+			fmt.Println(err.Message(), err.Code())
+			if err.Code() == codes.InvalidArgument {
+				fmt.Println("We probably sent a -ve number")
+				return
+			}
+		} else {
+			log.Fatalf("error calling square root : %v", err)
+		}
+	}
+	fmt.Printf("Result of square root of %v: %v", num, res.GetNumberRoot())
 
 }
 

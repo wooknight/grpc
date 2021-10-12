@@ -6,9 +6,12 @@ import (
 	"grpc/stream/calculator/calculatorpb"
 	"io"
 	"log"
+	"math"
 	"net"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type server struct{}
@@ -58,6 +61,15 @@ func (*server) ComputeAverage(stream calculatorpb.CalculatorService_ComputeAvera
 		count++
 	}
 
+}
+
+func (*server) SquareRoot(ctx context.Context, req *calculatorpb.SquareRootRequest) (*calculatorpb.SquareRootResponse, error) {
+	fmt.Printf("SquareRoot  started \n")
+	num := req.GetNumber()
+	if num < 0 {
+		return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("Received an invalid negative number : %v\n", num))
+	}
+	return &calculatorpb.SquareRootResponse{NumberRoot: math.Sqrt(float64(num))}, nil
 }
 
 func (*server) FindMaximum(stream calculatorpb.CalculatorService_FindMaximumServer) error {
