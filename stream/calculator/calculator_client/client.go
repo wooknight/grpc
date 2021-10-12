@@ -139,32 +139,33 @@ func doClientStreaming(c calculatorpb.CalculatorServiceClient) {
 
 type TreeNode struct {
 	key         int
-	value       int
-	left, right *TreeNode
+	Left, Right *TreeNode
 }
 
-func BSTSearch(root *TreeNode, key int) (*TreeNode, *TreeNode, *TreeNode) {
+func BSTSearch(root *TreeNode, key int) (*TreeNode, *TreeNode, *TreeNode, *TreeNode) {
 	if root == nil {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	curr := root
-	var succ, pred *TreeNode
+	var succ, pred, parent *TreeNode
 	for curr != nil {
 		if key == curr.key {
-			return curr, succ, pred
+			return curr, succ, pred, parent
 		} else if key < curr.key {
 			succ = curr
-			curr = curr.left
+			parent = curr
+			curr = curr.Left
 		} else {
 			pred = curr
-			curr = curr.right
+			parent = curr
+			curr = curr.Right
 		}
 	}
-	return nil, succ, pred
+	return nil, succ, pred, parent
 }
 
 func BSTInsert(root *TreeNode, key int, val int) (*TreeNode, error) {
-	tmp := TreeNode{key: key, value: val}
+	tmp := TreeNode{key: key}
 	if root == nil {
 		return &tmp, nil //empty tree so we are creating the new node
 	}
@@ -176,16 +177,16 @@ func BSTInsert(root *TreeNode, key int, val int) (*TreeNode, error) {
 			return nil, errors.New("Key already exists")
 		} else if key < curr.key {
 			prev = curr
-			curr = curr.left
+			curr = curr.Left
 		} else {
 			prev = curr
-			curr = curr.right
+			curr = curr.Right
 		}
 	}
 	if key < prev.key {
-		prev.left = &tmp
+		prev.Left = &tmp
 	} else {
-		prev.right = &tmp
+		prev.Right = &tmp
 	}
 	return root, nil
 }
@@ -195,8 +196,8 @@ func BSTMin(root *TreeNode) (*TreeNode, error) {
 		return nil, nil //empty tree
 	}
 	curr := root
-	for curr.left != nil {
-		curr = curr.left
+	for curr.Left != nil {
+		curr = curr.Left
 	}
 	return curr, nil
 }
@@ -206,8 +207,8 @@ func BSTMax(root *TreeNode) (*TreeNode, error) {
 		return nil, nil //empty tree
 	}
 	curr := root
-	for curr.right != nil {
-		curr = curr.right
+	for curr.Right != nil {
+		curr = curr.Right
 	}
 	return curr, nil
 }
@@ -216,13 +217,13 @@ func BSTSuccessor(root *TreeNode, key int) (*TreeNode, error) {
 	if root == nil {
 		return nil, nil //empty tree
 	}
-	curr, succ, _ := BSTSearch(root, key)
+	curr, succ, _, _ := BSTSearch(root, key)
 	if curr == nil {
 		return nil, errors.New("key not found")
 	}
-	if curr.right != nil {
+	if curr.Right != nil {
 		//leftmost child of the right subtree
-		return BSTMin(curr.right)
+		return BSTMin(curr.Right)
 	}
 	//now we have to go back to the ancestral tree to find the first right turn
 	return succ, nil
@@ -232,14 +233,60 @@ func BSTPredecessor(root *TreeNode, key int) (*TreeNode, error) {
 	if root == nil {
 		return nil, nil //empty tree
 	}
-	curr, _, pred := BSTSearch(root, key)
+	curr, _, pred, _ := BSTSearch(root, key)
 	if curr == nil {
 		return nil, errors.New("key not found")
 	}
-	if curr.left != nil {
+	if curr.Left != nil {
 		//leftmost child of the right subtree
-		return BSTMax(curr.left)
+		return BSTMax(curr.Left)
 	}
 	//now we have to go back to the ancestral tree to find the first right turn
 	return pred, nil
+}
+
+func BSTDelete(root *TreeNode, key int) (*TreeNode, error) {
+	var child *TreeNode
+
+	curr, _, _, parent := BSTSearch(root, key)
+	if curr == nil {
+		return root, nil
+	}
+	//leaf node
+	if curr.Left == nil && curr.Right == nil {
+		if parent != nil {
+			if curr == parent.Left {
+				parent.Left = nil
+			} else {
+				parent.Right = nil
+			}
+		} else {
+			return nil, nil //root = single node tree
+		}
+	} else if curr.Left != nil && curr.Right != nil { //both children exist
+		succ, err := BSTMin(curr.Right)
+		if err != nil {
+			log.Printf("Error while getting min : %v", err)
+		}
+		tmp := succ.key //swapping values
+		root, _ = BSTDelete(root, tmp)
+		curr.key = tmp
+	} else {
+		// only one child exists
+		if curr.Left != nil {
+			child = curr.Left
+		} else {
+			child = curr.Right
+		}
+		if parent != nil {
+			if curr == parent.Left {
+				parent.Left = child
+			} else {
+				parent.Right = child
+			}
+		} else {
+			return child, nil
+		}
+	}
+	return root, nil
 }
