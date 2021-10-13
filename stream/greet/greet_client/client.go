@@ -9,20 +9,26 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
 	fmt.Println("hello I am a client")
-	cc, err := grpc.Dial(":50051", grpc.WithInsecure())
+	certFile := "ssl/ca.crt"
+	creds, err := credentials.NewClientTLSFromFile(certFile, "")
+	if err != nil {
+		log.Fatalf("Credentials file missing : %v", err)
+	}
+	cc, err := grpc.Dial(":50051", grpc.WithTransportCredentials(creds))
 	if err != nil {
 		log.Fatalf("Could not connect : %v", err)
 	}
 	defer cc.Close()
 	c := greetpb.NewGreetServiceClient(cc)
-	// doUnary(c)
+	doUnary(c)
 	// doServerStreaming(c)
 	// doClientStreaming(c)
-	doBidiStreaming(c)
+	// doBidiStreaming(c)
 }
 
 func doBidiStreaming(c greetpb.GreetServiceClient) {
